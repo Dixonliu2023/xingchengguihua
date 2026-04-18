@@ -1,0 +1,14 @@
+# 飞书配置
+
+feishu:
+  app_id: "cli_xxxxxxxxxxxxx"
+  app_secret: "xxxxxxxxxxxxxxxx"
+  app_token: "app_xxxxxxxxxxxxxxxx"
+  
+tables:
+  destinations: "tbl_xxxxxxxxxxxxxxxx"
+  special_experiences: "tbl_xxxxxxxxxxxxxxxx"
+  experience_categories: "tbl_xxxxxxxxxxxxxxxx"
+  risk_warnings: "tbl_xxxxxxxxxxxxxxxx"
+  new_highlights: "tbl_xxxxxxxxxxxxxxxx"
+  product_logs: "tbl_xxxxxxxxxxxxxxxx"
