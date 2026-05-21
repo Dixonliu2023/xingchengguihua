@@ -1,429 +1,407 @@
 ---
 name: travel-product-creator
-description: 全链路旅游产品生成引擎，整合Product Designer产品架构（灵魂）与Multi-Agent自动化执行（骨架），支持飞书知识库玩法匹配和自我进化，输出多种格式文档
+description: Use when designing tourism products, customer-facing itineraries, or sales-ready travel packages from Excel/CSV knowledge files, Feishu Base knowledge, or mixed source materials.
 ---
 
-# 旅游产品创作 - 全链路生成引擎
+# Travel Product Creator
 
-## 系统架构
+## Overview
 
-本技能将**产品架构（灵魂）**与**自动化执行（骨架）**深度整合，实现从高维度产品策划到细节化行程落地的全流程自动化。
+This skill designs tourism products from structured knowledge sources and
+outputs both customer-facing and internal travel product documents.
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                  全链路旅游产品生成引擎                                │
-└─────────────────────────────────────────────────────────────────────┘
-                              │
-        ┌─────────────────────┴─────────────────────┐
-        │                                             │
-  【需求触发层】                               【数据基础设施层】
-        │                                             │
-  客户输入接收                              ┌─────────────────┐
-        │                              │ 飞书多维表格  │
-        ▼                              │ - 目的地信息   │
-  ┌───────────────┐                    │ - 特别玩法库   │
-  │  智能路由     │ ──────────────────▶│ - 主题分类树   │
-  │  (AI建议)     │   RAG检索增强      │ - 玩法标签体系 │
-  └───────────────┘                    │ - 风险预警库   │
-        │                              └─────────────────┘
-        │                                      │
-        ├──────────────────────────────────────┤
-        │                                      │
-        ▼                                      ▼
-┌─────────────────────┐              ┌─────────────────┐
-│  产品定调层(灵魂)   │              │  路径优化层(骨架)│
-└─────────────────────┘              └─────────────────┘
-        │                                      │
-┌─────────────────────┐              ┌─────────────────┐
-│ Product Designer    │              │ Multi-Agent     │
-│ - 产品定位          │              │ - Agent 2 (验证)│
-│ - 资源解构          │              │ - 高德MCP       │
-│ - 行程设计          │              │ - "不走回头路"  │
-└─────────────────────┘              └─────────────────┘
-        │                                      │
-        └──────────────┬───────────────────────┘
-                       │
-                       ▼
-              ┌─────────────────────┐
-              │   文档生成与融合     │
-              ├─────────────────────┤
-              │ - 完整产品文档      │
-              │ - PRD文档           │
-              │ - 简易行程表        │
-              │ - 销售推介文档      │
-              └─────────────────────┘
-                       │
-                       ▼
-              ┌─────────────────────┐
-              │  知识库自我进化     │
-              │ (新亮点自动回写)    │
-              └─────────────────────┘
-```
+Core principle:
 
-## 工作流程
-
-### 阶段0：需求触发与智能路由
-
-**任务：** 接收客户需求，分析并建议合适的工作流
-
-**步骤：**
-1. 解析用户输入（目的地、天数、人群、需求）
-2. 计算路由评分（目的地热度20% + 需求复杂度30% + 客户类型25% + 时间要求25%）
-3. 调用飞书MCP获取目的地热度评分
-4. 生成AI路由建议（快速生成/深度设计）
-5. 用户确认后进入相应工作流
-
-**输出：**
-- 需求分析报告
-- AI路由建议（含推荐理由）
-- 用户确认的工作流类型
+1. Do not reason directly on raw Excel or Feishu tables.
+2. Normalize knowledge into canonical objects first.
+3. Treat Gaode as a validation layer, not a creative layer.
+4. Separate customer-facing outputs from internal product outputs.
 
 ---
 
-### 阶段1：产品定调层（Product Designer核心）
+## When to Use
 
-**任务：** 确定产品的"调性"和"核心卖点"
+Use this skill when the task is to:
 
-**模块A：产品定位与层次**
-- 调用飞书MCP `search_destinations` 获取目的地基础信息
-- 确定产品层次（路线/产品/作品）
-- 定义目标消费者画像
-- 提炼产品价值主张（功能+情绪+资产价值）
+- design a travel product, not just answer travel questions
+- turn destination materials into a sellable itinerary
+- convert client Excel or CSV files into a tourism product draft
+- combine internal Feishu Base knowledge with client project materials
+- generate customer-facing itinerary copy plus internal product documents
 
-**模块B：资源解构与呈现**
-- 调用飞书MCP `get_destination_elements` 获取目的地元素
-- 识别"隐性之美"（非POI的文化元素）
-- 设计任务化体验
+Do not use this skill for:
 
-**模块C：行程设计与呈现**
-- 调用飞书MCP获取特色餐厅/住宿建议
-- 设计峰终定律和哇点
+- generic travel Q&A with no product design requirement
+- live booking confirmation
+- final ticketing, inventory locking, or contract issuance
+- precise pricing commitments when the pricing layer is not yet connected
 
 ---
 
-### 阶段2：玩法注入层（飞书知识库核心）
+## Input Modes
 
-**任务：** 在景点筛选阶段同步检索飞书特别玩法
+The skill supports three source modes:
 
-**核心创新：** 与Agent 1景点筛选**同步进行**，而非事后叠加
+### 1. `excel_csv`
 
-**检索策略：**
-1. 解析产品定位中的主题和人群标签
-2. 调用飞书MCP `sync_retrieve_experiences` 同步检索
-3. 返回融合候选清单（标准POI + 飞书特别玩法）
-4. 按情绪价值和社交评分排序
+Use when the client provides:
 
-**输出：**
-- 融合候选清单（标准POI + 特别玩法）
-- 玩法标签匹配度评分
+- `.xlsx`
+- `.csv`
+- multiple project sheets
+
+Primary references:
+
+- `integrations/canonical-schema.md`
+- `integrations/excel-adapter-spec.md`
+- `integrations/field-mapping-examples.md`
+
+### 2. `feishu_base`
+
+Use when the knowledge source is a maintained Feishu Base.
+
+Primary references:
+
+- `integrations/canonical-schema.md`
+- `integrations/feishu-base-adapter-spec.md`
+
+Implementation note:
+
+- Feishu access should be described as a Base adapter via `lark-cli`
+- Do not rely on vague “Feishu MCP” assumptions in output reasoning
+
+### 3. `mixed`
+
+Use when:
+
+- client project data comes from Excel/CSV
+- shared reusable knowledge comes from Feishu Base
+
+Priority rule:
+
+- project-specific client material overrides shared public knowledge when they conflict
 
 ---
 
-### 阶段3：路径优化层（Multi-Agent 2验证）
+## Canonical Objects
 
-**任务：** 确保飞书"玩法"在地理位置和交通上是合理的
+All source data should normalize into these objects before product design:
 
-**验证规则增强：**
-- 自驾：50公里内或1小时车程内为"可达"
-- 公共交通：结合换乘情况判断
-- 飞书特别玩法的地理位置精确性验证
-- 玩法之间的时间衔接性检查
-- 节奏合理性评估（张弦方法论）
+- `destinations`
+- `pois`
+- `experiences`
+- `resources`
+- `risk_warnings`
+- `rate_cards` for future pricing support
 
-**风险同步预警：**
-- 飞书玩法库中的 `risk_warning` 字段
-- 高德MCP实时路况
-- Product Designer风险模块
+Reference:
 
-**输出：**
-- 景点通达性验证表（含风险预警）
-- 推荐景点组合
-- "不走回头路"检查结果
+- `integrations/canonical-schema.md`
+
+Do not generate product copy directly from raw table fields if canonical
+normalization has not happened.
 
 ---
 
-### 阶段4：文档生成与融合
+## Execution Order
 
-**任务：** 整合所有阶段数据，生成4类文档
+Always follow this order:
 
-**文档生成矩阵：**
+1. detect source mode
+2. parse travel demand
+3. normalize source data into canonical schema
+4. choose quick or deep flow
+5. design product strategy
+6. validate route feasibility with Gaode
+7. generate output documents
+8. optionally prepare knowledge write-back candidates
 
-| 文档类型 | 数据来源 | 模板 | 输出场景 |
-|---------|---------|------|---------|
-| 简易行程表 | Agent 3 + 飞书玩法 | `templates/simple-itinerary.md` | 所有流程 |
-| 销售推介文档 | 产品定位 + 卖点 | `templates/sales-pitch.md` | 所有流程 |
-| 产品文档 | Product Designer 6模块 | `templates/product-doc.md` | 深度设计 |
-| PRD文档 | Product Designer + 成本 | `templates/prd-doc.md` | 深度设计 |
+---
 
-**融合逻辑：**
-```javascript
-// 简易行程表
-- Agent 3每日行程
-- 飞书特别玩法高亮标注
-- 费用预算
+## Intake Rules
 
-// 销售推介文档
-- 产品定位（模块A）
-- 卖点与亮点（模块E）
-- 哇点清单（模块C）
-- 独特体验（飞书玩法）
+Build a normalized input context first.
 
-// 产品文档
-- 所有6模块完整内容
-- 飞书元素挖掘
-- 验证结果
+Suggested structure:
 
-// PRD文档
-- 产品文档核心内容
-- 风险评估（模块F）
-- 成本分析
+```yaml
+input_context:
+  source_mode: excel_csv | feishu_base | mixed
+  route_mode: quick | deep
+  destination: "{{目的地}}"
+  days: "{{天数}}"
+  audience: "{{客群}}"
+  budget: "{{预算，可空}}"
+  urgency: "{{即时 | 标准 | 宽松}}"
+  theme: "{{亲子 | 度假 | 美食 | 文化 | 自驾 | 定制等}}"
 ```
 
----
-
-### 阶段5：知识库自我进化
-
-**任务：** 将产品设计中的新亮点自动回写飞书知识库
-
-**自动回写条件：**
-1. 产品文档中标注为"新亮点"的内容
-2. 飞书玩法库中不存在的玩法
-3. 客户反馈评分≥4.5的体验
-
-**回写流程：**
-1. 产品生成完成后，识别新亮点
-2. 调用飞书MCP `write_back_to_feishu`
-3. 执行去重检查
-4. 回写入库并标记来源
-5. 设置验证状态为"待验证"
-
-**输出：**
-- 回写记录（含recordId）
-- 验证任务列表
+When key inputs are missing, make reasonable drafting assumptions and mark them
+as pending confirmation in the internal logic.
 
 ---
 
-## 核心方法论
+## Flow Selection
 
-### 张弦产品设计公式
+### Quick Flow
 
+Use when:
+
+- demand is relatively standard
+- user needs a first draft quickly
+- customer communication is the main goal
+
+Target:
+
+- 3-5 minute quality first draft
+
+Required outputs:
+
+- `templates/simple-itinerary.md`
+- `templates/sales-pitch.md`
+
+### Deep Flow
+
+Use when:
+
+- demand is customized or high value
+- special audience fit matters
+- internal product design depth is required
+
+Required outputs:
+
+- `templates/simple-itinerary.md`
+- `templates/sales-pitch.md`
+- `templates/product-doc.md`
+- `templates/prd-doc.md`
+
+Optional future outputs:
+
+- `quote-sheet.md`
+- `cost-breakdown.md`
+
+Reference:
+
+- `skill-refactor-outline.md`
+
+---
+
+## Product Design Layer
+
+This layer defines:
+
+- target audience
+- product level
+- value proposition
+- travel rhythm
+- experience priorities
+- memory points
+- social or emotional hooks
+
+Use these product design principles:
+
+- product = destination + audience + theme + experience
+- value = functional value + emotional value + asset value
+- not every route is a product; a product needs positioning and memory design
+- avoid stacking attractions without narrative or rhythm
+
+Important:
+
+- this layer chooses what kind of product it is
+- this layer does not validate distance or transfer feasibility
+
+---
+
+## Gaode Validation Layer
+
+Gaode is a reality-check layer.
+
+Gaode should do:
+
+- resolve POI coordinates
+- validate transfer distance and time
+- reduce backtracking
+- identify infeasible daily route intensity
+- support route order optimization
+
+Gaode should not do:
+
+- define theme
+- decide emotional value
+- write sales copy
+- replace product strategy
+
+Expected output shape:
+
+```yaml
+validated_route_plan:
+  status: valid | needs_adjustment
+  daily_routes: []
+  rejected_candidates: []
+  optimization_notes: []
 ```
-产品 = 目的地 + 人群 + 主题 + 体验
-```
 
-### 产品价值公式
-
-```
-产品价值 = 功能价值 + 情绪价值 + 资产价值
-```
-
-### 产品层次
-
-- **路线**：基础景点拼凑
-- **产品**：有名字、对应客群、有设计思路
-- **作品**：强主题、强设计、强价值（此时、此地、此刻、此生）
-
-### 峰终定律
-
-- 重点设计行程中的极值点（惊喜时刻）
-- 重点设计终点体验
-
-### 氛围四部曲
-
-1. 自我介绍
-2. 行程说明会
-3. 集体仪式感
-4. 分享总结
+When a route is only partially validated, be explicit about assumptions instead
+of pretending certainty.
 
 ---
 
-## 集成能力
+## Customer-Facing Output Contract
 
-### 飞书多维表格MCP
+The customer-facing main document is:
 
-**工具列表：**
-- `search_destinations` - 搜索目的地信息
-- `search_special_experiences` - 搜索特别玩法
-- `search_by_categories` - 按主题分类搜索体验
-- `sync_retrieve_experiences` - 景点筛选阶段同步检索
-- `get_destination_elements` - 获取目的地元素挖掘
-- `write_back_to_feishu` - 知识库回写
+- `templates/simple-itinerary.md`
 
-**数据模型：**
-- `destinations` - 目的地基础信息
-- `special_experiences` - 特别玩法库
-- `experience_categories` - 主题分类树
-- `risk_warnings` - 风险预警库
-- `new_highlights` - 新亮点库（回写）
-- `product_logs` - 产品生成日志
+It should follow a finished handout style, not a bare schedule table.
 
-### 高德MCP
+It should typically contain:
 
-**工具列表：**
-- 验证景点通达性
-- 查询距离和车程
-- "不走回头路"检查
+1. product title and opening copy
+2. emotional destination intro
+3. product-manager narrative
+4. “what should travel be like” section
+5. product-designer explanation
+6. quick-look itinerary table
+7. destination highlights / clock-in section
+8. cuisine recommendation
+9. accommodation highlights
+10. detailed day-by-day itinerary
+11. arrival / departure notes
+12. service standards
+13. exclusions
+14. travel notes
+15. warm closing copy
 
----
+Supporting customer-facing document:
 
-## 路由判断矩阵
+- `templates/sales-pitch.md`
 
-| 维度 | 权重 | 评估指标 | 路由建议 |
-|------|------|---------|---------|
-| 目的地热度 | 20% | 热门(≥8分)/标准(5-7分)/小众(<5分) | 热门→快速，其他→深度 |
-| 需求复杂度 | 30% | 标准/定制化 | 标准→快速，定制→深度 |
-| 客户类型 | 25% | 新客/老客/VIP | 新客→快速，VIP→深度 |
-| 时间要求 | 25% | 即时/标准/宽松 | 即时→快速，其他→深度 |
+This document should:
 
-**路由逻辑：**
-```
-评分 = 目的地热度 × 20% + 需求复杂度 × 30% + 客户类型 × 25% + 时间要求 × 25%
-评分 ≥ 70 → 快速生成流程
-评分 < 70 → 深度设计流程
-```
+- help sales explain why the product is worth buying
+- summarize ideal audience
+- compress route highlights
+- provide objection-handling guidance
+- stay aligned with the customer-facing itinerary tone
+
+Important:
+
+- customer-facing outputs should read like finished product copy
+- do not expose internal raw assumptions, technical schema terms, or adapter logic
 
 ---
 
-## 工作流选择
+## Internal Output Contract
 
-### 快速生成流程
+Internal outputs are for product, sales, and operations alignment.
 
-**触发条件：**
-- 目的地热度≥8分
-- 需求标准化（常见目的地+常规主题）
-- 时间要求即时（<5分钟）
-- 新客咨询或快速报价
+### `templates/product-doc.md`
 
-**流程步骤：**
-1. 产品定位（简化版）
-2. 玩法注入（同步检索）
-3. 路径优化（Agent 2验证）
-4. 文档生成（简易行程表+销售推介）
+Use for:
 
-**预计耗时：** 3-5分钟
+- product positioning
+- audience fit
+- resource decomposition
+- experience logic
+- route rationale
+- risk notes
+- future pricing placeholders
 
-**输出文档：**
-- 简易行程表
-- 销售推介文档
+### `templates/prd-doc.md`
 
----
+Use for:
 
-### 深度设计流程
+- execution alignment
+- internal standards
+- structured handoff to team members
 
-**触发条件：**
-- 目的地热度<8分（小众目的地）
-- 需求定制化（深度主题+特殊人群）
-- 时间要求标准/宽松
-- VIP客户或重点产品
+Internal outputs should be more explicit than customer outputs about:
 
-**流程步骤：**
-1. 交互式产品设计（6模块，每模块确认）
-2. 产品定位
-3. 资源解构
-4. 行程设计
-5. 氛围与仪式
-6. 商业策略
-7. 风险与应对
-8. 玩法注入（深度融合）
-9. 路径优化（Agent 2验证）
-10. 文档生成（完整4类文档）
-11. 知识库回写（可选）
-
-**预计耗时：** 30-60分钟
-
-**输出文档：**
-- 完整产品文档
-- PRD产品需求文档
-- 简易行程表
-- 销售推介文档
+- assumptions
+- validation status
+- pending confirmations
+- route risks
+- source origin
 
 ---
 
-## 重要原则
+## Knowledge Write-Back Rule
 
-### 设计原则
+Knowledge write-back is optional and should be conservative.
 
-1. **取法乎上**：以100分标准要求自己
-2. **拒绝复制**：案例用于印证逻辑，而非生搬硬套
-3. **感知美**：先感受到显性和隐性之美，再传递给游客
+Only prepare write-back candidates when:
 
-### 资源真实性校验
+- a highlight is clearly new
+- it does not already exist in the knowledge base
+- it is marked as unverified until confirmed
 
-1. 核心资源必须验证（导游/餐厅/酒店/门票）
-2. 新线路必须预调研（费用+时间）
-3. 风险必须标注（淡旺季/资源变动/备选方案）
-
-### 社交逻辑（录音核心洞察）
-
-不管做什么产品，社交需求是底层逻辑。
-
-**每条线路必须包含：**
-- 至少一个破冰环节
-- 至少一个合影记忆点
-
-### "不走回头路"原则
-
-线路设计必须遵循"不走回头路"原则，确保每个景点只经过一次，形成单向闭环。
+Do not treat draft creativity as verified long-term knowledge.
 
 ---
 
-## 触发条件
+## Pricing Reservation
 
-当用户提到以下关键词时，自动调用此Skill：
-- "设计一条线路"
-- "做个产品"
-- "帮我规划行程"
-- "线路怎么做"
-- "产品怎么包装"
-- "大连亲子游"
-- "定制行程"
+Pricing is not required for every run yet, but the architecture must leave room
+for it.
 
----
+Reserved canonical object:
 
-## 参考资料
+- `rate_cards`
 
-- **张弦产品设计框架**：`references/zhang-xian-methodology.md`
-- **飞书数据模型**：`integrations/feishu/data-model.md`
-- **路由规则**：`references/routing-rules.md`
-- **融合逻辑**：`references/fusion-logic.md`
-- **提示词模板**：`references/prompt-templates.md`
+Reserved future outputs:
+
+- `quote-sheet.md`
+- `cost-breakdown.md`
+
+Until pricing is fully connected:
+
+- do not present precise final prices as confirmed
+- if price hints exist, present them as reference only
 
 ---
 
-## 输出格式
+## Output Summary Format
 
-请按以下格式输出产品创作结果：
+At completion, summarize output like this:
 
-```
-✅ 产品创作完成！
+```text
+✅ 产品创作完成
 
-📄 输出文档：
+客户侧输出：
 1. [产品名称]-简易行程表.md
 2. [产品名称]-销售推介.md
-3. [产品名称]-产品文档.md （深度设计）
-4. [产品名称]-PRD.md （深度设计）
 
-🔄 知识库回写：
-- 新亮点数量：X个
-- 回写状态：[成功/待验证]
+内部输出：
+3. [产品名称]-产品文档.md（深度流）
+4. [产品名称]-PRD.md（深度流）
 
-💡 后续建议：
-[产品推广、优化建议等]
+数据来源：
+- source_mode: excel_csv / feishu_base / mixed
+
+验证状态：
+- 路线验证：已验证 / 部分验证 / 待验证
+- 待确认项：X项
+
+后续建议：
+- {{下一步建议}}
 ```
 
 ---
 
-## 成功指标
+## References
 
-| 指标 | 目标值 | 测量方式 |
-|-----|-------|---------|
-| 客户需求响应时间（快速） | <5分钟 | 计时统计 |
-| 客户需求响应时间（深度） | <60分钟 | 计时统计 |
-| 产品生成准确率 | ≥90% | 用户反馈 |
-| 玩法匹配成功率 | ≥85% | 匹配度评估 |
-| 知识库月增长率 | ≥10个/月 | 数据统计 |
+- `integrations/canonical-schema.md`
+- `integrations/excel-adapter-spec.md`
+- `integrations/feishu-base-adapter-spec.md`
+- `integrations/field-mapping-examples.md`
+- `skill-refactor-outline.md`
+- `templates/simple-itinerary.md`
+- `templates/sales-pitch.md`
+- `templates/product-doc.md`
+- `templates/prd-doc.md`
+- `CHANGELOG.md`
 
 ---
 
-*文档版本：v1.0*
-*创建日期：2026-03-10*
+*Document version: v2.0*  
+*Last updated: 2026-05-21*
